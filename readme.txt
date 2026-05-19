@@ -1,6 +1,6 @@
 === Malzknecht Post-Sidebar ===
 Author: Malzknecht
-Version: 0.3.0
+Version: 0.4.0
 Requires at least: WordPress 6.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
@@ -43,6 +43,10 @@ Im Custom-CSS:
 }
 
 == Changelog ==
+
+= 0.4.0 =
+* TOC-Fix: Headings im Beitragsinhalt bekommen automatisch slugified IDs (Umlaut-kompatibel). Anker-Klicks von TOC-Bloecken funktionieren jetzt zuverlaessig, auch mit URL-encodeten Umlauten (Astras Smooth-Scroll-Crash wird abgefangen).
+* Sticky-Header-Offset wird beim Scroll-Ziel beruecksichtigt.
 
 = 0.3.0 =
 * Eigener Custom-Post-Type "Sidebar-Module" mit vollem Block-Editor. Eigener Menuepunkt in WP-Admin. Pro Beitrag im Meta-Box auswaehlbar.

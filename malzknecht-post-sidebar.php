@@ -3,7 +3,7 @@
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
  * Description:       Dynamisches Sidebar-Modul pro Beitrag mit eigenem Custom-Post-Type "Sidebar-Module", vollem Block-Editor, optional Reusable-Block oder freies HTML als Fallback. Sticky-Wrapper.
- * Version:           0.3.0
+ * Version:           0.4.0
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.3.0' );
+define( 'MPS_VERSION', '0.4.0' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
@@ -258,6 +258,13 @@ class MPS_Post_Sidebar {
 			MPS_URL . 'assets/style.css',
 			array(),
 			MPS_VERSION
+		);
+		wp_enqueue_script(
+			'mps-toc-fix',
+			MPS_URL . 'assets/toc-fix.js',
+			array(),
+			MPS_VERSION,
+			true
 		);
 	}
 
