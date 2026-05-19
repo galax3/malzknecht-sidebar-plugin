@@ -1,7 +1,6 @@
 /* Malzknecht Post-Sidebar — Sticky Wrapper */
 
 .mps-post-sidebar {
-	/* Abstand zur Header-Kante, kann pro Theme ueberschrieben werden */
 	--mps-sticky-top: 100px;
 	box-sizing: border-box;
 }
@@ -11,10 +10,8 @@
 }
 
 /*
- * Sticky muss an der aside.widget greifen, nicht an unserem inneren wrapper.
- * Sonst klebt es nur innerhalb der eigenen Widget-Hoehe (= zu kurz).
- * Wir schalten das innere wrapper-sticky aus, sobald das Widget die Klasse
- * `mps-has-sticky` traegt (vom Widget-Render-PHP gesetzt).
+ * Sticky greift am aside.widget (nicht am inneren wrapper) — sonst klebt
+ * es nur innerhalb der 73px-Widget-Hoehe und ist quasi unsichtbar.
  */
 aside.widget.mps-has-sticky {
 	position: sticky;
@@ -29,5 +26,48 @@ aside.widget.mps-has-sticky .mps-post-sidebar.mps-is-sticky {
 }
 
 /*
- * Astra (und einige Page-Builder) setzen overflow: hidden/auto auf body
- * oder einen Wrapper. Das killt position:sticky komplett, weil
+ * Astra setzt overflow auf body — das killt position:sticky komplett.
+ * Mit :has() scoped wir den Override auf Singular-Views mit unserem Widget.
+ */
+body.single:has(aside.widget.mps-has-sticky),
+body.single:has(aside.widget.mps-has-sticky) html,
+body.single:has(aside.widget.mps-has-sticky) #page,
+body.single:has(aside.widget.mps-has-sticky) #content,
+body.single:has(aside.widget.mps-has-sticky) .ast-container {
+	overflow: visible !important;
+	overflow-x: visible !important;
+	overflow-y: visible !important;
+}
+
+/*
+ * Sidebar-Container hochziehen, damit das aside in der ganzen Sidebar-Spalte
+ * Platz zum Stickyen hat (sonst klebt es nur bis Ende der natuerlichen
+ * Widget-Stack-Hoehe — ca. 615px).
+ */
+body.single:has(aside.widget.mps-has-sticky) .sidebar-main {
+	height: 100%;
+}
+
+/* Astras Sticky-Header beruecksichtigen */
+.ast-primary-sticky-header-active aside.widget.mps-has-sticky,
+body.ast-header-break-point aside.widget.mps-has-sticky {
+	--mps-sticky-top: 130px;
+}
+
+/* Mobile (Astra Mobile-Breakpoint): Sticky aus, alles auf default */
+@media (max-width: 921px) {
+	aside.widget.mps-has-sticky {
+		position: static;
+		top: auto;
+	}
+	body.single:has(aside.widget.mps-has-sticky),
+	body.single:has(aside.widget.mps-has-sticky) html,
+	body.single:has(aside.widget.mps-has-sticky) #page,
+	body.single:has(aside.widget.mps-has-sticky) #content,
+	body.single:has(aside.widget.mps-has-sticky) .ast-container {
+		overflow: revert !important;
+	}
+	body.single:has(aside.widget.mps-has-sticky) .sidebar-main {
+		height: auto;
+	}
+}

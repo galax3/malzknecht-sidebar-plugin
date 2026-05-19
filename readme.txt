@@ -1,6 +1,6 @@
 === Malzknecht Post-Sidebar ===
 Author: Malzknecht
-Version: 0.2.2
+Version: 0.2.3
 Requires at least: WordPress 6.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
@@ -43,6 +43,9 @@ Im Custom-CSS:
 }
 
 == Changelog ==
+
+= 0.2.3 =
+* Hotfix: style.css enthielt wegen eines Truncation-Bugs in v0.2.1 nicht die :has()-basierten overflow- und sidebar-main-Overrides. Sticky greift erst jetzt wirklich.
 
 = 0.2.2 =
 * Updater-Cache wird beim Plugin-Aktivieren, beim WP-Update-Process und beim Force-Check-Klick invalidiert. Verhindert das Festkleben einer alten 404-Antwort, wenn z.B. das Repo von privat auf public umgestellt wurde.

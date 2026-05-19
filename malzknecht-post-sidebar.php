@@ -3,7 +3,7 @@
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
  * Description:       Dynamisches Sidebar-Modul pro Beitrag. Reusable-Block oder freies HTML, mit optionalem Sticky-Wrapper.
- * Version:           0.2.2
+ * Version:           0.2.3
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.2.2' );
+define( 'MPS_VERSION', '0.2.3' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
