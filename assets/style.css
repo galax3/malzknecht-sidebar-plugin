@@ -1,7 +1,7 @@
 /* Malzknecht Post-Sidebar — Sticky Wrapper */
 
 .mps-post-sidebar {
-	/* Abstand zur Header-Kante, an Astras Sticky-Header anpassen */
+	/* Abstand zur Header-Kante, kann pro Theme ueberschrieben werden */
 	--mps-sticky-top: 100px;
 	box-sizing: border-box;
 }
@@ -10,25 +10,24 @@
 	margin-top: 1em;
 }
 
-/* Sticky-Modus: nur wenn Klasse gesetzt und im Sidebar-Kontext */
-.mps-post-sidebar.mps-is-sticky {
+/*
+ * Sticky muss an der aside.widget greifen, nicht an unserem inneren wrapper.
+ * Sonst klebt es nur innerhalb der eigenen Widget-Hoehe (= zu kurz).
+ * Wir schalten das innere wrapper-sticky aus, sobald das Widget die Klasse
+ * `mps-has-sticky` traegt (vom Widget-Render-PHP gesetzt).
+ */
+aside.widget.mps-has-sticky {
 	position: sticky;
-	top: var(--mps-sticky-top);
-	align-self: flex-start; /* falls Parent flex */
+	top: var(--mps-sticky-top, 100px);
+	align-self: flex-start;
 	z-index: 1;
 }
 
-/* Mehr Luft nach oben, wenn Astras Sticky-Header aktiv ist */
-.ast-primary-sticky-header-active .mps-post-sidebar.mps-is-sticky,
-body.ast-header-break-point .mps-post-sidebar.mps-is-sticky {
-	--mps-sticky-top: 130px;
+aside.widget.mps-has-sticky .mps-post-sidebar.mps-is-sticky {
+	position: static;
+	top: auto;
 }
 
-/* Auf kleinen Screens (Astra Mobile Breakpoint) deaktivieren —
-   da bricht die Sidebar ohnehin unter den Content */
-@media (max-width: 921px) {
-	.mps-post-sidebar.mps-is-sticky {
-		position: static;
-		top: auto;
-	}
-}
+/*
+ * Astra (und einige Page-Builder) setzen overflow: hidden/auto auf body
+ * oder einen Wrapper. Das killt position:sticky komplett, weil

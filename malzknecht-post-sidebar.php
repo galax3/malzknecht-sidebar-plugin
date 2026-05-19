@@ -3,7 +3,7 @@
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
  * Description:       Dynamisches Sidebar-Modul pro Beitrag. Reusable-Block oder freies HTML, mit optionalem Sticky-Wrapper. Erscheint nur bei Beitraegen, die etwas hinterlegt haben.
- * Version:           0.2.0
+ * Version:           0.2.1
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.2.0' );
+define( 'MPS_VERSION', '0.2.1' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
@@ -263,7 +263,20 @@ class MPS_Sidebar_Widget extends WP_Widget {
 			return;
 		}
 
-		echo $args['before_widget']; // WPCS: XSS ok.
+		// Wenn der Modul-Inhalt sticky ist, klebt CSS-technisch der aside-Wrapper —
+		// nicht das innere div. Dazu injizieren wir die Klasse 'mps-has-sticky'
+		// ins class-Attribut von $args['before_widget'].
+		$before_widget = $args['before_widget'];
+		if ( false !== strpos( $content, 'mps-is-sticky' ) ) {
+			$before_widget = preg_replace(
+				'/(\bclass\s*=\s*["\'])([^"\']*)/i',
+				'$1$2 mps-has-sticky',
+				$before_widget,
+				1
+			);
+		}
+
+		echo $before_widget; // WPCS: XSS ok.
 		if ( ! empty( $instance['title'] ) ) {
 			echo $args['before_title'] . esc_html( $instance['title'] ) . $args['after_title']; // WPCS: XSS ok.
 		}
@@ -283,7 +296,6 @@ class MPS_Sidebar_Widget extends WP_Widget {
 				name="<?php echo esc_attr( $this->get_field_name( 'title' ) ); ?>"
 				type="text"
 				value="<?php echo esc_attr( $title ); ?>">
-		</p>
 		<p style="color:#666;font-size:12px">
 			<?php esc_html_e( 'Inhalt wird je Beitrag im Beitrags-Editor gepflegt (Meta-Box "Sidebar-Modul").', 'malzknecht-post-sidebar' ); ?>
 		</p>

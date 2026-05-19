@@ -1,6 +1,6 @@
 === Malzknecht Post-Sidebar ===
 Author: Malzknecht
-Version: 0.2.0
+Version: 0.2.1
 Requires at least: WordPress 6.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
@@ -44,5 +44,5 @@ Im Custom-CSS:
 
 == Changelog ==
 
-= 0.2.0 =
-* Self-Updater ueber GitHub-Releases: Updates erscheinen d
+= 0.2.1 =
+* Sticky-Fix fuer Astra: sticky greift jetzt am aside.widg
