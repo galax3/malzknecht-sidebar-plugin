@@ -3,7 +3,7 @@
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
  * Description:       Dynamisches Sidebar-Modul pro Beitrag mit eigenem Custom-Post-Type "Sidebar-Module", vollem Block-Editor, optional Reusable-Block oder freies HTML als Fallback. Sticky-Wrapper.
- * Version:           0.4.0
+ * Version:           0.5.0
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.4.0' );
+define( 'MPS_VERSION', '0.5.0' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
@@ -33,6 +33,9 @@ class MPS_Post_Sidebar {
 	const META_STICKY     = '_mps_sidebar_sticky';
 	const NONCE_KEY       = 'mps_sidebar_nonce';
 	const NONCE_ACTION    = 'mps_save_sidebar_meta';
+
+	/** @var array<int,string> Render-Cache (Post-ID => fertiges HTML) */
+	private $rendered_cache = array();
 
 	private static $instance = null;
 
@@ -266,6 +269,11 @@ class MPS_Post_Sidebar {
 			MPS_VERSION,
 			true
 		);
+
+		// Modul-Inhalt schon hier rendern, damit Block-Plugins (Spectra/UAGB
+		// etc.) ihre CSS/JS noch im wp_head enqueuen koennen. Ergebnis wird
+		// im Instance-Cache abgelegt und im Widget-Render wiederverwendet.
+		$this->render_module( $post_id );
 	}
 
 	public function has_module_content( $post_id ) {
@@ -292,6 +300,11 @@ class MPS_Post_Sidebar {
 			return '';
 		}
 
+		// Instance-Cache (verhindert doppeltes Rendering im selben Request)
+		if ( isset( $this->rendered_cache[ $post_id ] ) ) {
+			return $this->rendered_cache[ $post_id ];
+		}
+
 		$sticky = get_post_meta( $post_id, self::META_STICKY, true );
 		if ( '' === $sticky ) {
 			$sticky = '1';
@@ -302,25 +315,33 @@ class MPS_Post_Sidebar {
 		}
 
 		$inner = '';
+		$block_content = '';
 
 		// 1) Eigener CPT (Sidebar-Module mit Block-Editor)
 		$module_id = (int) get_post_meta( $post_id, self::META_MODULE_ID, true );
 		if ( $module_id > 0 ) {
 			$module_post = get_post( $module_id );
 			if ( $module_post && 'publish' === $module_post->post_status && self::CPT === $module_post->post_type ) {
-				$inner = do_blocks( $module_post->post_content );
+				$block_content = $module_post->post_content;
 			}
 		}
 
 		// 2) Reusable Block / Synced Pattern (Fallback)
-		if ( '' === $inner ) {
+		if ( '' === $block_content ) {
 			$block_id = (int) get_post_meta( $post_id, self::META_BLOCK_ID, true );
 			if ( $block_id > 0 ) {
 				$block_post = get_post( $block_id );
 				if ( $block_post && 'publish' === $block_post->post_status && 'wp_block' === $block_post->post_type ) {
-					$inner = do_blocks( $block_post->post_content );
+					$block_content = $block_post->post_content;
 				}
 			}
+		}
+
+		if ( '' !== $block_content ) {
+			// Voller the_content-Filter statt nur do_blocks() — damit Block-
+			// Plugins wie Spectra/UAGB ihre Asset-Pipeline triggern und
+			// dynamische Block-CSS rechtzeitig enqueuen.
+			$inner = apply_filters( 'the_content', $block_content );
 		}
 
 		// 3) Freies HTML / Shortcode (Fallback)
@@ -332,14 +353,17 @@ class MPS_Post_Sidebar {
 		}
 
 		if ( '' === $inner ) {
+			$this->rendered_cache[ $post_id ] = '';
 			return '';
 		}
 
-		return sprintf(
+		$result = sprintf(
 			'<div class="%s">%s</div>',
 			esc_attr( implode( ' ', $classes ) ),
 			$inner
 		);
+		$this->rendered_cache[ $post_id ] = $result;
+		return $result;
 	}
 
 	public function shortcode( $atts ) {

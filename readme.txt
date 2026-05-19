@@ -1,6 +1,6 @@
 === Malzknecht Post-Sidebar ===
 Author: Malzknecht
-Version: 0.4.0
+Version: 0.5.0
 Requires at least: WordPress 6.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
@@ -43,6 +43,10 @@ Im Custom-CSS:
 }
 
 == Changelog ==
+
+= 0.5.0 =
+* Pre-Render des Sidebar-Moduls vor wp_head, damit Block-Plugins wie Spectra/UAGB ihre Block-CSS und Frontend-JS rechtzeitig enqueuen koennen. Loest fehlende Styles bei TOC-, Icon-List-, Container-Bloecken usw.
+* Rendering laeuft jetzt durch den vollen the_content-Filter statt nur do_blocks(). Ergebnis wird im Instance-Cache abgelegt, damit das Widget nichts doppelt rendert.
 
 = 0.4.0 =
 * TOC-Fix: Headings im Beitragsinhalt bekommen automatisch slugified IDs (Umlaut-kompatibel). Anker-Klicks von TOC-Bloecken funktionieren jetzt zuverlaessig, auch mit URL-encodeten Umlauten (Astras Smooth-Scroll-Crash wird abgefangen).
