@@ -3,7 +3,7 @@
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
  * Description:       Dynamisches Sidebar-Modul pro Beitrag mit eigenem Custom-Post-Type "Sidebar-Module", vollem Block-Editor, optional Reusable-Block oder freies HTML als Fallback. Sticky-Wrapper.
- * Version:           0.5.1
+ * Version:           0.5.2
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.5.1' );
+define( 'MPS_VERSION', '0.5.2' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
@@ -36,6 +36,11 @@ class MPS_Post_Sidebar {
 
 	/** @var array<int,string> Render-Cache (Post-ID => fertiges HTML) */
 	private $rendered_cache = array();
+
+	/** @var string Eingesammelte Spectra-CSS fuer Modul-Inhalt */
+	private $spectra_extra_css = '';
+	/** @var string Eingesammeltes Spectra-JS fuer Modul-Inhalt */
+	private $spectra_extra_js = '';
 
 	private static $instance = null;
 
@@ -283,9 +288,16 @@ class MPS_Post_Sidebar {
 	}
 
 	/**
-	 * Triggert Spectras (UAGB) Asset-Pipeline gezielt fuer die hinterlegten
-	 * Modul- und Block-Post-IDs. Loest fehlende Block-CSS bei TOC,
-	 * Icon-List, Container-Bloecken in Sidebar-Modulen.
+	 * Spectras (UAGB) Block-CSS und Frontend-JS fuer den Modul-/Block-Inhalt
+	 * einsammeln und im wp_head/wp_footer inline ausgeben.
+	 *
+	 * Hintergrund: Spectras File-Generation laeuft im Hauptpost-Kontext und
+	 * mergt unsere Modul-Inhalte nicht ein. UAGB_Post_Assets::enqueue_scripts
+	 * direkt aufzurufen funktioniert nicht zuverlaessig, weil Spectra dann
+	 * versucht eine separate CSS-Datei fuer die Modul-Post-ID zu enqueuen,
+	 * die im Frontend nicht zur Hauptpage-CSS-Kette dazugehoert. Stattdessen
+	 * nutzen wir get_assets_using_post_content, das die generierte CSS+JS
+	 * als String zurueckgibt — die printen wir inline.
 	 */
 	private function preload_spectra_assets( $post_id ) {
 		if ( ! class_exists( 'UAGB_Post_Assets' ) ) {
@@ -300,16 +312,63 @@ class MPS_Post_Sidebar {
 		if ( $block_id > 0 ) {
 			$ids[] = $block_id;
 		}
+		if ( empty( $ids ) ) {
+			return;
+		}
+
 		foreach ( $ids as $id ) {
 			try {
-				$assets = new UAGB_Post_Assets( $id );
-				if ( method_exists( $assets, 'enqueue_scripts' ) ) {
-					$assets->enqueue_scripts();
+				// Spectra erwartet die Post-ID als Constructor-Arg
+				$assets_obj = new UAGB_Post_Assets( $id );
+
+				if ( method_exists( $assets_obj, 'get_assets_using_post_content' ) ) {
+					$assets = $assets_obj->get_assets_using_post_content( $id );
+					if ( is_array( $assets ) ) {
+						if ( ! empty( $assets['css'] ) ) {
+							$this->spectra_extra_css .= "\n" . $assets['css'];
+						}
+						if ( ! empty( $assets['js'] ) ) {
+							$this->spectra_extra_js .= "\n" . $assets['js'];
+						}
+					}
+				}
+
+				// Block-spezifische Frontend-Dependencies (Icon-Fonts,
+				// TOC-Klapp-JS etc.) ueber Spectras eigenen Mechanismus
+				// enqueuen — die landen dann sauber im wp_head/footer.
+				if ( method_exists( $assets_obj, 'enqueue_blocks_dependency_frontend' ) ) {
+					$assets_obj->enqueue_blocks_dependency_frontend();
 				}
 			} catch ( \Throwable $e ) {
-				// Silently ignore — Spectra-API kann sich aendern.
+				// Spectra-API kann sich aendern; bei Fehler weiter ohne
 			}
 		}
+
+		// Globale UAGB-Block-Dependencies anstossen
+		if ( class_exists( 'UAGB_Scripts_Utils' ) && method_exists( 'UAGB_Scripts_Utils', 'enqueue_blocks_dependency_both' ) ) {
+			try { UAGB_Scripts_Utils::enqueue_blocks_dependency_both(); } catch ( \Throwable $e ) {}
+		}
+
+		if ( '' !== $this->spectra_extra_css ) {
+			add_action( 'wp_head', array( $this, 'print_spectra_extra_css' ), 90 );
+		}
+		if ( '' !== $this->spectra_extra_js ) {
+			add_action( 'wp_footer', array( $this, 'print_spectra_extra_js' ), 1000 );
+		}
+	}
+
+	public function print_spectra_extra_css() {
+		if ( '' === $this->spectra_extra_css ) {
+			return;
+		}
+		echo '<style id="mps-spectra-extra-css">' . $this->spectra_extra_css . '</style>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	public function print_spectra_extra_js() {
+		if ( '' === $this->spectra_extra_js ) {
+			return;
+		}
+		echo '<script id="mps-spectra-extra-js">' . $this->spectra_extra_js . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	public function has_module_content( $post_id ) {

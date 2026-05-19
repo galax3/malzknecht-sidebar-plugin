@@ -1,6 +1,6 @@
 === Malzknecht Post-Sidebar ===
 Author: Malzknecht
-Version: 0.5.1
+Version: 0.5.2
 Requires at least: WordPress 6.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
@@ -43,6 +43,10 @@ Im Custom-CSS:
 }
 
 == Changelog ==
+
+= 0.5.2 =
+* Spectra/UAGB-Block-CSS und Frontend-JS fuer Modul-Inhalt werden jetzt direkt ueber UAGB_Post_Assets::get_assets_using_post_content eingesammelt und inline im wp_head/wp_footer ausgegeben. TOC, Icon-List, Container-Bloecke und andere Spectra-Bloecke im Sidebar-Modul bekommen damit ihr volles Styling.
+* Spectra-Frontend-Dependencies (Icon-Fonts, TOC-Klapp-JS) werden ebenfalls aktiv getriggert.
 
 = 0.5.1 =
 * Fix: Autorenbox und andere the_content-Filter wurden faelschlicherweise auch ins Sidebar-Modul mit-gerendert. Rendering nutzt wieder do_blocks(), nicht den vollen the_content-Filter.
