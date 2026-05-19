@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
- * Description:       Dynamisches Sidebar-Modul pro Beitrag. Reusable-Block oder freies HTML, mit optionalem Sticky-Wrapper.
- * Version:           0.2.3
+ * Description:       Dynamisches Sidebar-Modul pro Beitrag mit eigenem Custom-Post-Type "Sidebar-Module", vollem Block-Editor, optional Reusable-Block oder freies HTML als Fallback. Sticky-Wrapper.
+ * Version:           0.3.0
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.2.3' );
+define( 'MPS_VERSION', '0.3.0' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
@@ -26,11 +26,13 @@ require_once MPS_DIR . 'includes/class-mps-github-updater.php';
 
 class MPS_Post_Sidebar {
 
-	const META_BLOCK_ID = '_mps_sidebar_block_id';
-	const META_CUSTOM   = '_mps_sidebar_custom_html';
-	const META_STICKY   = '_mps_sidebar_sticky';
-	const NONCE_KEY     = 'mps_sidebar_nonce';
-	const NONCE_ACTION  = 'mps_save_sidebar_meta';
+	const CPT             = 'mps_sidebar_module';
+	const META_MODULE_ID  = '_mps_sidebar_module_id';
+	const META_BLOCK_ID   = '_mps_sidebar_block_id';
+	const META_CUSTOM     = '_mps_sidebar_custom_html';
+	const META_STICKY     = '_mps_sidebar_sticky';
+	const NONCE_KEY       = 'mps_sidebar_nonce';
+	const NONCE_ACTION    = 'mps_save_sidebar_meta';
 
 	private static $instance = null;
 
@@ -43,6 +45,7 @@ class MPS_Post_Sidebar {
 
 	public static function boot() {
 		$plugin = self::instance();
+		add_action( 'init',               array( $plugin, 'register_post_type' ) );
 		add_action( 'add_meta_boxes',     array( $plugin, 'register_meta_box' ) );
 		add_action( 'save_post',          array( $plugin, 'save_meta' ), 10, 2 );
 		add_action( 'widgets_init',       array( $plugin, 'register_widget' ) );
@@ -72,6 +75,41 @@ class MPS_Post_Sidebar {
 		return $links;
 	}
 
+	/**
+	 * Custom Post Type "Sidebar-Module" mit Block-Editor.
+	 */
+	public function register_post_type() {
+		register_post_type( self::CPT, array(
+			'labels' => array(
+				'name'               => __( 'Sidebar-Module', 'malzknecht-post-sidebar' ),
+				'singular_name'      => __( 'Sidebar-Modul', 'malzknecht-post-sidebar' ),
+				'menu_name'          => __( 'Sidebar-Module', 'malzknecht-post-sidebar' ),
+				'name_admin_bar'     => __( 'Sidebar-Modul', 'malzknecht-post-sidebar' ),
+				'add_new'            => __( 'Neu hinzufuegen', 'malzknecht-post-sidebar' ),
+				'add_new_item'       => __( 'Neues Sidebar-Modul', 'malzknecht-post-sidebar' ),
+				'edit_item'          => __( 'Sidebar-Modul bearbeiten', 'malzknecht-post-sidebar' ),
+				'new_item'           => __( 'Neues Sidebar-Modul', 'malzknecht-post-sidebar' ),
+				'view_item'          => __( 'Sidebar-Modul ansehen', 'malzknecht-post-sidebar' ),
+				'search_items'       => __( 'Sidebar-Module durchsuchen', 'malzknecht-post-sidebar' ),
+				'all_items'          => __( 'Alle Sidebar-Module', 'malzknecht-post-sidebar' ),
+				'not_found'          => __( 'Noch kein Sidebar-Modul angelegt.', 'malzknecht-post-sidebar' ),
+			),
+			'public'              => false,
+			'show_ui'             => true,
+			'show_in_menu'        => true,
+			'show_in_rest'        => true,
+			'menu_icon'           => 'dashicons-align-pull-right',
+			'menu_position'       => 25,
+			'supports'            => array( 'title', 'editor', 'revisions' ),
+			'has_archive'         => false,
+			'exclude_from_search' => true,
+			'publicly_queryable'  => false,
+			'rewrite'             => false,
+			'capability_type'     => 'post',
+			'map_meta_cap'        => true,
+		) );
+	}
+
 	public function supported_post_types() {
 		return apply_filters( 'mps_supported_post_types', array( 'post' ) );
 	}
@@ -92,12 +130,21 @@ class MPS_Post_Sidebar {
 	public function render_meta_box( $post ) {
 		wp_nonce_field( self::NONCE_ACTION, self::NONCE_KEY );
 
-		$block_id = (int) get_post_meta( $post->ID, self::META_BLOCK_ID, true );
-		$custom   = (string) get_post_meta( $post->ID, self::META_CUSTOM, true );
-		$sticky   = get_post_meta( $post->ID, self::META_STICKY, true );
+		$module_id = (int) get_post_meta( $post->ID, self::META_MODULE_ID, true );
+		$block_id  = (int) get_post_meta( $post->ID, self::META_BLOCK_ID, true );
+		$custom    = (string) get_post_meta( $post->ID, self::META_CUSTOM, true );
+		$sticky    = get_post_meta( $post->ID, self::META_STICKY, true );
 		if ( '' === $sticky ) {
 			$sticky = '1';
 		}
+
+		$modules = get_posts( array(
+			'post_type'      => self::CPT,
+			'posts_per_page' => -1,
+			'orderby'        => 'title',
+			'order'          => 'ASC',
+			'post_status'    => 'publish',
+		) );
 
 		$blocks = get_posts( array(
 			'post_type'      => 'wp_block',
@@ -106,9 +153,34 @@ class MPS_Post_Sidebar {
 			'order'          => 'ASC',
 			'post_status'    => 'publish',
 		) );
+
+		$new_module_url = admin_url( 'post-new.php?post_type=' . self::CPT );
+		$edit_module_url = $module_id ? admin_url( 'post.php?post=' . $module_id . '&action=edit' ) : '';
 		?>
 		<p>
-			<label for="mps_block_id"><strong><?php esc_html_e( 'Wiederverwendbarer Block', 'malzknecht-post-sidebar' ); ?></strong></label><br>
+			<label for="mps_module_id"><strong><?php esc_html_e( 'Sidebar-Modul', 'malzknecht-post-sidebar' ); ?></strong></label><br>
+			<select name="mps_module_id" id="mps_module_id" style="width:100%">
+				<option value="0"><?php esc_html_e( 'Keins', 'malzknecht-post-sidebar' ); ?></option>
+				<?php foreach ( $modules as $m ) : ?>
+					<option value="<?php echo (int) $m->ID; ?>" <?php selected( $module_id, $m->ID ); ?>>
+						<?php echo esc_html( $m->post_title ? $m->post_title : sprintf( '(ohne Titel) #%d', $m->ID ) ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+			<span class="description">
+				<a href="<?php echo esc_url( $new_module_url ); ?>" target="_blank"><?php esc_html_e( 'Neues Modul anlegen', 'malzknecht-post-sidebar' ); ?></a>
+				<?php if ( $edit_module_url ) : ?>
+					&middot; <a href="<?php echo esc_url( $edit_module_url ); ?>" target="_blank"><?php esc_html_e( 'Aktuelles bearbeiten', 'malzknecht-post-sidebar' ); ?></a>
+				<?php endif; ?>
+			</span>
+		</p>
+
+		<p style="border-top:1px solid #e1e1e1;padding-top:10px;color:#666">
+			<em><?php esc_html_e( 'Fallbacks (falls oben nichts gewaehlt ist):', 'malzknecht-post-sidebar' ); ?></em>
+		</p>
+
+		<p>
+			<label for="mps_block_id"><?php esc_html_e( 'Synced Pattern / Reusable Block', 'malzknecht-post-sidebar' ); ?></label><br>
 			<select name="mps_block_id" id="mps_block_id" style="width:100%">
 				<option value="0"><?php esc_html_e( 'Keiner', 'malzknecht-post-sidebar' ); ?></option>
 				<?php foreach ( $blocks as $b ) : ?>
@@ -117,24 +189,22 @@ class MPS_Post_Sidebar {
 					</option>
 				<?php endforeach; ?>
 			</select>
-			<span class="description"><?php esc_html_e( 'Hat Vorrang vor dem freien HTML-Feld.', 'malzknecht-post-sidebar' ); ?></span>
 		</p>
 
 		<p>
-			<label for="mps_custom_html"><strong><?php esc_html_e( 'Oder: Freies HTML / Shortcode', 'malzknecht-post-sidebar' ); ?></strong></label><br>
-			<textarea name="mps_custom_html" id="mps_custom_html" rows="6" style="width:100%; font-family:monospace;"><?php echo esc_textarea( $custom ); ?></textarea>
-			<span class="description"><?php esc_html_e( 'Wird nur verwendet, wenn oben kein Block gewaehlt ist.', 'malzknecht-post-sidebar' ); ?></span>
+			<label for="mps_custom_html"><?php esc_html_e( 'Freies HTML / Shortcode', 'malzknecht-post-sidebar' ); ?></label><br>
+			<textarea name="mps_custom_html" id="mps_custom_html" rows="4" style="width:100%; font-family:monospace; font-size:11px;"><?php echo esc_textarea( $custom ); ?></textarea>
 		</p>
 
-		<p>
+		<p style="border-top:1px solid #e1e1e1;padding-top:10px;">
 			<label>
 				<input type="checkbox" name="mps_sticky" value="1" <?php checked( $sticky, '1' ); ?>>
 				<?php esc_html_e( 'Mit der Seite mitscrollen (sticky)', 'malzknecht-post-sidebar' ); ?>
 			</label>
 		</p>
 
-		<p style="color:#666;font-size:12px">
-			<?php esc_html_e( 'Erscheint nur, wenn das Widget Malzknecht Post-Sidebar in einer Sidebar liegt oder der Shortcode [mps_post_sidebar] genutzt wird. Felder leer lassen = nichts wird angezeigt.', 'malzknecht-post-sidebar' ); ?>
+		<p style="color:#666;font-size:11px">
+			<?php esc_html_e( 'Priorisierung: Sidebar-Modul > Synced Pattern > freies HTML. Alle leer = es wird nichts angezeigt.', 'malzknecht-post-sidebar' ); ?>
 		</p>
 		<?php
 	}
@@ -156,6 +226,9 @@ class MPS_Post_Sidebar {
 		if ( ! $pt_obj || ! current_user_can( $pt_obj->cap->edit_post, $post_id ) ) {
 			return;
 		}
+
+		$module_id = isset( $_POST['mps_module_id'] ) ? (int) $_POST['mps_module_id'] : 0;
+		update_post_meta( $post_id, self::META_MODULE_ID, $module_id );
 
 		$block_id = isset( $_POST['mps_block_id'] ) ? (int) $_POST['mps_block_id'] : 0;
 		update_post_meta( $post_id, self::META_BLOCK_ID, $block_id );
@@ -189,6 +262,10 @@ class MPS_Post_Sidebar {
 	}
 
 	public function has_module_content( $post_id ) {
+		$module_id = (int) get_post_meta( $post_id, self::META_MODULE_ID, true );
+		if ( $module_id > 0 && 'publish' === get_post_status( $module_id ) ) {
+			return true;
+		}
 		$block_id = (int) get_post_meta( $post_id, self::META_BLOCK_ID, true );
 		if ( $block_id > 0 && 'publish' === get_post_status( $block_id ) ) {
 			return true;
@@ -217,20 +294,36 @@ class MPS_Post_Sidebar {
 			$classes[] = 'mps-is-sticky';
 		}
 
-		$inner    = '';
-		$block_id = (int) get_post_meta( $post_id, self::META_BLOCK_ID, true );
-		if ( $block_id > 0 ) {
-			$block_post = get_post( $block_id );
-			if ( $block_post && 'publish' === $block_post->post_status && 'wp_block' === $block_post->post_type ) {
-				$inner = do_blocks( $block_post->post_content );
+		$inner = '';
+
+		// 1) Eigener CPT (Sidebar-Module mit Block-Editor)
+		$module_id = (int) get_post_meta( $post_id, self::META_MODULE_ID, true );
+		if ( $module_id > 0 ) {
+			$module_post = get_post( $module_id );
+			if ( $module_post && 'publish' === $module_post->post_status && self::CPT === $module_post->post_type ) {
+				$inner = do_blocks( $module_post->post_content );
 			}
 		}
+
+		// 2) Reusable Block / Synced Pattern (Fallback)
+		if ( '' === $inner ) {
+			$block_id = (int) get_post_meta( $post_id, self::META_BLOCK_ID, true );
+			if ( $block_id > 0 ) {
+				$block_post = get_post( $block_id );
+				if ( $block_post && 'publish' === $block_post->post_status && 'wp_block' === $block_post->post_type ) {
+					$inner = do_blocks( $block_post->post_content );
+				}
+			}
+		}
+
+		// 3) Freies HTML / Shortcode (Fallback)
 		if ( '' === $inner ) {
 			$custom = (string) get_post_meta( $post_id, self::META_CUSTOM, true );
 			if ( '' !== trim( $custom ) ) {
 				$inner = do_shortcode( $custom );
 			}
 		}
+
 		if ( '' === $inner ) {
 			return '';
 		}
@@ -316,9 +409,15 @@ class MPS_Sidebar_Widget extends WP_Widget {
 add_action( 'plugins_loaded', array( 'MPS_Post_Sidebar', 'boot' ) );
 
 register_activation_hook( __FILE__, function() {
+	MPS_Post_Sidebar::instance()->register_post_type();
+	flush_rewrite_rules();
 	if ( class_exists( 'MPS_GitHub_Updater' ) ) {
 		MPS_GitHub_Updater::clear_cache();
 	}
+} );
+
+register_deactivation_hook( __FILE__, function() {
+	flush_rewrite_rules();
 } );
 
 add_action( 'upgrader_process_complete', function( $upgrader, $hook_extra ) {

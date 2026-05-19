@@ -1,6 +1,6 @@
 === Malzknecht Post-Sidebar ===
 Author: Malzknecht
-Version: 0.2.3
+Version: 0.3.0
 Requires at least: WordPress 6.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
@@ -43,6 +43,11 @@ Im Custom-CSS:
 }
 
 == Changelog ==
+
+= 0.3.0 =
+* Eigener Custom-Post-Type "Sidebar-Module" mit vollem Block-Editor. Eigener Menuepunkt in WP-Admin. Pro Beitrag im Meta-Box auswaehlbar.
+* Reusable Block und freies HTML bleiben als Fallback bestehen.
+* Priorisierung: Sidebar-Modul > Synced Pattern > freies HTML.
 
 = 0.2.3 =
 * Hotfix: style.css enthielt wegen eines Truncation-Bugs in v0.2.1 nicht die :has()-basierten overflow- und sidebar-main-Overrides. Sticky greift erst jetzt wirklich.
