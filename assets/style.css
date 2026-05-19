@@ -1,0 +1,34 @@
+/* Malzknecht Post-Sidebar — Sticky Wrapper */
+
+.mps-post-sidebar {
+	/* Abstand zur Header-Kante, an Astras Sticky-Header anpassen */
+	--mps-sticky-top: 100px;
+	box-sizing: border-box;
+}
+
+.mps-post-sidebar > * + * {
+	margin-top: 1em;
+}
+
+/* Sticky-Modus: nur wenn Klasse gesetzt und im Sidebar-Kontext */
+.mps-post-sidebar.mps-is-sticky {
+	position: sticky;
+	top: var(--mps-sticky-top);
+	align-self: flex-start; /* falls Parent flex */
+	z-index: 1;
+}
+
+/* Mehr Luft nach oben, wenn Astras Sticky-Header aktiv ist */
+.ast-primary-sticky-header-active .mps-post-sidebar.mps-is-sticky,
+body.ast-header-break-point .mps-post-sidebar.mps-is-sticky {
+	--mps-sticky-top: 130px;
+}
+
+/* Auf kleinen Screens (Astra Mobile Breakpoint) deaktivieren —
+   da bricht die Sidebar ohnehin unter den Content */
+@media (max-width: 921px) {
+	.mps-post-sidebar.mps-is-sticky {
+		position: static;
+		top: auto;
+	}
+}
