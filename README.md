@@ -18,9 +18,7 @@ Kleines WordPress-Plugin für [malzknecht.de](https://malzknecht.de). Erlaubt pr
 
 ## Dev
 
-- Single-file Plugin (`malzknecht-post-sidebar.php`), eine CSS-Datei (`assets/style.css`).
-- ZIP-Build: `zip -r malzknecht-post-sidebar.zip malzknecht-post-sidebar -x "*/.DS_Store"` aus dem Parent-Verzeichnis.
-
-## Lizenz
-
-GPL-2.0-or-later
+- Main-Plugin-Datei: `malzknecht-post-sidebar.php`
+- CSS: `assets/style.css`
+- Self-Updater: `includes/class-mps-github-updater.php`
+- ZIP-Build manuell: `zip -r malzknecht-post-sidebar.zip malzknecht-post-sidebar -x "*/.DS_Store" "*/.git*

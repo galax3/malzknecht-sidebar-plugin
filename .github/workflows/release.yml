@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Read plugin version
+        id: ver
+        run: |
+          VERSION=$(grep -E "^\s*\*\s*Version:" malzknecht-post-sidebar.php \
+            | head -1 \
+            | sed -E 's/.*Version:\s*//; s/\s+$//')
+          if [ -z "$VERSION" ]; then
+            echo "Could not parse version from plugin header"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION"    >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Check if release tag already exists
+        id: tag
+        run: |
+          if git ls-remote --tags origin "refs/tags/v${{ steps.ver.outputs.version }}" | grep -q .; then
+            echo "exists=true"  >> "$GITHUB_OUTPUT"
+            echo "Tag v${{ steps.ver.outputs.version }} bereits vorhanden, kein neuer Release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag v${{ steps.ver.outputs.version }} ist neu, baue Release."
+          fi
+
+      - name: Build plugin ZIP
+        if: steps.tag.outputs.exists == 'false'
+        run: |
+          BUILD_DIR=build/malzknecht-post-sidebar
+          mkdir -p "$BUILD_DIR"
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='build' \
+            --exclude='*.zip' \
+            --exclude='.DS_Store' \
+            --exclude='__MACOSX' \
+            ./ "$BUILD_DIR/"
+          (cd build && zip -r ../malzknecht-post-sidebar.zip malzknecht-post-sidebar)
+          ls -la malzknecht-post-sidebar.zip
+          unzip -l malzknecht-post-sidebar.zip
+
+      - name: Create GitHub Release
+        if: steps.tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
+          files: malzknecht-post-sidebar.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true

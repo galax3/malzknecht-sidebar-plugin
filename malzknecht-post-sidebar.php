@@ -3,7 +3,7 @@
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
  * Description:       Dynamisches Sidebar-Modul pro Beitrag. Reusable-Block oder freies HTML, mit optionalem Sticky-Wrapper. Erscheint nur bei Beitraegen, die etwas hinterlegt haben.
- * Version:           0.1.0
+ * Version:           0.2.0
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -11,14 +11,18 @@
  * Text Domain:       malzknecht-post-sidebar
  * Requires at least: 6.0
  * Requires PHP:      7.4
+ * Update URI:        https://github.com/galax3/malzknecht-sidebar-plugin
  */
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.1.0' );
+define( 'MPS_VERSION', '0.2.0' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
+define( 'MPS_GITHUB_REPO', 'galax3/malzknecht-sidebar-plugin' );
+
+require_once MPS_DIR . 'includes/class-mps-github-updater.php';
 
 /**
  * Kernklasse: Meta-Box, Speichern, Rendern.
@@ -48,6 +52,11 @@ class MPS_Post_Sidebar {
 		add_action( 'widgets_init',       array( $plugin, 'register_widget' ) );
 		add_action( 'wp_enqueue_scripts', array( $plugin, 'enqueue_assets' ) );
 		add_shortcode( 'mps_post_sidebar', array( $plugin, 'shortcode' ) );
+
+		// Self-Updater via GitHub Releases
+		if ( is_admin() && class_exists( 'MPS_GitHub_Updater' ) ) {
+			new MPS_GitHub_Updater( MPS_FILE, MPS_GITHUB_REPO );
+		}
 	}
 
 	/**
