@@ -1,6 +1,6 @@
 === Malzknecht Post-Sidebar ===
 Author: Malzknecht
-Version: 0.5.0
+Version: 0.5.1
 Requires at least: WordPress 6.0
 Requires PHP: 7.4
 License: GPL-2.0-or-later
@@ -43,6 +43,10 @@ Im Custom-CSS:
 }
 
 == Changelog ==
+
+= 0.5.1 =
+* Fix: Autorenbox und andere the_content-Filter wurden faelschlicherweise auch ins Sidebar-Modul mit-gerendert. Rendering nutzt wieder do_blocks(), nicht den vollen the_content-Filter.
+* Spectra/UAGB-Asset-Pipeline wird stattdessen gezielt fuer Modul- und Block-Post-IDs ueber UAGB_Post_Assets ausgeloest. TOC, Icon-List und andere UAGB-Bloecke bekommen jetzt ihr CSS.
 
 = 0.5.0 =
 * Pre-Render des Sidebar-Moduls vor wp_head, damit Block-Plugins wie Spectra/UAGB ihre Block-CSS und Frontend-JS rechtzeitig enqueuen koennen. Loest fehlende Styles bei TOC-, Icon-List-, Container-Bloecken usw.

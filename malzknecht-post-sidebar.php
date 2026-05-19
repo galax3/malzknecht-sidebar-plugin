@@ -3,7 +3,7 @@
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
  * Description:       Dynamisches Sidebar-Modul pro Beitrag mit eigenem Custom-Post-Type "Sidebar-Module", vollem Block-Editor, optional Reusable-Block oder freies HTML als Fallback. Sticky-Wrapper.
- * Version:           0.5.0
+ * Version:           0.5.1
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.5.0' );
+define( 'MPS_VERSION', '0.5.1' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
@@ -270,10 +270,46 @@ class MPS_Post_Sidebar {
 			true
 		);
 
-		// Modul-Inhalt schon hier rendern, damit Block-Plugins (Spectra/UAGB
-		// etc.) ihre CSS/JS noch im wp_head enqueuen koennen. Ergebnis wird
-		// im Instance-Cache abgelegt und im Widget-Render wiederverwendet.
+		// Spectra/UAGB: deren File-Generation-System pro Post-ID gezielt fuer
+		// unsere Modul- und Reusable-Block-Posts triggern, damit deren
+		// Block-CSS in die Page enqueued wird.
+		$this->preload_spectra_assets( $post_id );
+
+		// Modul-Inhalt schon hier rendern, damit andere Block-Plugins die
+		// auf render_block hooken ihre Assets noch im wp_head enqueuen
+		// koennen. Ergebnis wird im Instance-Cache abgelegt und im
+		// Widget-Render wiederverwendet.
 		$this->render_module( $post_id );
+	}
+
+	/**
+	 * Triggert Spectras (UAGB) Asset-Pipeline gezielt fuer die hinterlegten
+	 * Modul- und Block-Post-IDs. Loest fehlende Block-CSS bei TOC,
+	 * Icon-List, Container-Bloecken in Sidebar-Modulen.
+	 */
+	private function preload_spectra_assets( $post_id ) {
+		if ( ! class_exists( 'UAGB_Post_Assets' ) ) {
+			return;
+		}
+		$ids = array();
+		$module_id = (int) get_post_meta( $post_id, self::META_MODULE_ID, true );
+		if ( $module_id > 0 ) {
+			$ids[] = $module_id;
+		}
+		$block_id = (int) get_post_meta( $post_id, self::META_BLOCK_ID, true );
+		if ( $block_id > 0 ) {
+			$ids[] = $block_id;
+		}
+		foreach ( $ids as $id ) {
+			try {
+				$assets = new UAGB_Post_Assets( $id );
+				if ( method_exists( $assets, 'enqueue_scripts' ) ) {
+					$assets->enqueue_scripts();
+				}
+			} catch ( \Throwable $e ) {
+				// Silently ignore — Spectra-API kann sich aendern.
+			}
+		}
 	}
 
 	public function has_module_content( $post_id ) {
@@ -338,10 +374,9 @@ class MPS_Post_Sidebar {
 		}
 
 		if ( '' !== $block_content ) {
-			// Voller the_content-Filter statt nur do_blocks() — damit Block-
-			// Plugins wie Spectra/UAGB ihre Asset-Pipeline triggern und
-			// dynamische Block-CSS rechtzeitig enqueuen.
-			$inner = apply_filters( 'the_content', $block_content );
+			// Nur do_blocks — keinen vollen the_content-Filter, sonst landen
+			// Autorenbox, Related-Posts u.a. mit im Sidebar-Modul.
+			$inner = do_blocks( $block_content );
 		}
 
 		// 3) Freies HTML / Shortcode (Fallback)
