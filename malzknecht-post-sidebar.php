@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Malzknecht Post-Sidebar
  * Plugin URI:        https://malzknecht.de/
- * Description:       Dynamisches Sidebar-Modul pro Beitrag. Reusable-Block oder freies HTML, mit optionalem Sticky-Wrapper. Erscheint nur bei Beitraegen, die etwas hinterlegt haben.
- * Version:           0.2.1
+ * Description:       Dynamisches Sidebar-Modul pro Beitrag. Reusable-Block oder freies HTML, mit optionalem Sticky-Wrapper.
+ * Version:           0.2.2
  * Author:            Malzknecht
  * Author URI:        https://malzknecht.de/
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MPS_VERSION', '0.2.1' );
+define( 'MPS_VERSION', '0.2.2' );
 define( 'MPS_FILE', __FILE__ );
 define( 'MPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MPS_URL', plugin_dir_url( __FILE__ ) );
@@ -24,9 +24,6 @@ define( 'MPS_GITHUB_REPO', 'galax3/malzknecht-sidebar-plugin' );
 
 require_once MPS_DIR . 'includes/class-mps-github-updater.php';
 
-/**
- * Kernklasse: Meta-Box, Speichern, Rendern.
- */
 class MPS_Post_Sidebar {
 
 	const META_BLOCK_ID = '_mps_sidebar_block_id';
@@ -35,7 +32,6 @@ class MPS_Post_Sidebar {
 	const NONCE_KEY     = 'mps_sidebar_nonce';
 	const NONCE_ACTION  = 'mps_save_sidebar_meta';
 
-	/** @var MPS_Post_Sidebar|null */
 	private static $instance = null;
 
 	public static function instance() {
@@ -53,16 +49,29 @@ class MPS_Post_Sidebar {
 		add_action( 'wp_enqueue_scripts', array( $plugin, 'enqueue_assets' ) );
 		add_shortcode( 'mps_post_sidebar', array( $plugin, 'shortcode' ) );
 
-		// Self-Updater via GitHub Releases
 		if ( is_admin() && class_exists( 'MPS_GitHub_Updater' ) ) {
 			new MPS_GitHub_Updater( MPS_FILE, MPS_GITHUB_REPO );
+
+			if ( ! empty( $_GET['mps_force_refresh'] ) || ! empty( $_GET['force-check'] ) ) {
+				MPS_GitHub_Updater::clear_cache();
+			}
+
+			add_filter(
+				'plugin_action_links_' . plugin_basename( MPS_FILE ),
+				array( $plugin, 'plugin_action_link' )
+			);
 		}
 	}
 
-	/**
-	 * Post-Types, die die Meta-Box bekommen.
-	 * Per Filter erweiterbar: add_filter( 'mps_supported_post_types', fn($pts) => array_merge($pts, ['page']) );
-	 */
+	public function plugin_action_link( $links ) {
+		$url     = wp_nonce_url(
+			admin_url( 'plugins.php?mps_force_refresh=1' ),
+			'mps_force_refresh'
+		);
+		$links[] = sprintf( '<a href="%s">%s</a>', esc_url( $url ), esc_html__( 'GitHub-Update pruefen', 'malzknecht-post-sidebar' ) );
+		return $links;
+	}
+
 	public function supported_post_types() {
 		return apply_filters( 'mps_supported_post_types', array( 'post' ) );
 	}
@@ -87,7 +96,7 @@ class MPS_Post_Sidebar {
 		$custom   = (string) get_post_meta( $post->ID, self::META_CUSTOM, true );
 		$sticky   = get_post_meta( $post->ID, self::META_STICKY, true );
 		if ( '' === $sticky ) {
-			$sticky = '1'; // Default sticky an, wenn nie gespeichert
+			$sticky = '1';
 		}
 
 		$blocks = get_posts( array(
@@ -101,7 +110,7 @@ class MPS_Post_Sidebar {
 		<p>
 			<label for="mps_block_id"><strong><?php esc_html_e( 'Wiederverwendbarer Block', 'malzknecht-post-sidebar' ); ?></strong></label><br>
 			<select name="mps_block_id" id="mps_block_id" style="width:100%">
-				<option value="0"><?php esc_html_e( '— Keiner —', 'malzknecht-post-sidebar' ); ?></option>
+				<option value="0"><?php esc_html_e( 'Keiner', 'malzknecht-post-sidebar' ); ?></option>
 				<?php foreach ( $blocks as $b ) : ?>
 					<option value="<?php echo (int) $b->ID; ?>" <?php selected( $block_id, $b->ID ); ?>>
 						<?php echo esc_html( $b->post_title ? $b->post_title : sprintf( '(ohne Titel) #%d', $b->ID ) ); ?>
@@ -125,7 +134,7 @@ class MPS_Post_Sidebar {
 		</p>
 
 		<p style="color:#666;font-size:12px">
-			<?php esc_html_e( 'Erscheint nur, wenn das Widget "Malzknecht Post-Sidebar" in einer Sidebar liegt oder der Shortcode [mps_post_sidebar] genutzt wird. Felder leer lassen = nichts wird angezeigt.', 'malzknecht-post-sidebar' ); ?>
+			<?php esc_html_e( 'Erscheint nur, wenn das Widget Malzknecht Post-Sidebar in einer Sidebar liegt oder der Shortcode [mps_post_sidebar] genutzt wird. Felder leer lassen = nichts wird angezeigt.', 'malzknecht-post-sidebar' ); ?>
 		</p>
 		<?php
 	}
@@ -208,7 +217,7 @@ class MPS_Post_Sidebar {
 			$classes[] = 'mps-is-sticky';
 		}
 
-		$inner = '';
+		$inner    = '';
 		$block_id = (int) get_post_meta( $post_id, self::META_BLOCK_ID, true );
 		if ( $block_id > 0 ) {
 			$block_post = get_post( $block_id );
@@ -238,9 +247,6 @@ class MPS_Post_Sidebar {
 	}
 }
 
-/**
- * Widget, das das Sidebar-Modul des aktuellen Beitrags rendert.
- */
 class MPS_Sidebar_Widget extends WP_Widget {
 
 	public function __construct() {
@@ -263,9 +269,6 @@ class MPS_Sidebar_Widget extends WP_Widget {
 			return;
 		}
 
-		// Wenn der Modul-Inhalt sticky ist, klebt CSS-technisch der aside-Wrapper —
-		// nicht das innere div. Dazu injizieren wir die Klasse 'mps-has-sticky'
-		// ins class-Attribut von $args['before_widget'].
 		$before_widget = $args['before_widget'];
 		if ( false !== strpos( $content, 'mps-is-sticky' ) ) {
 			$before_widget = preg_replace(
@@ -276,12 +279,12 @@ class MPS_Sidebar_Widget extends WP_Widget {
 			);
 		}
 
-		echo $before_widget; // WPCS: XSS ok.
+		echo $before_widget;
 		if ( ! empty( $instance['title'] ) ) {
-			echo $args['before_title'] . esc_html( $instance['title'] ) . $args['after_title']; // WPCS: XSS ok.
+			echo $args['before_title'] . esc_html( $instance['title'] ) . $args['after_title'];
 		}
-		echo $content; // WPCS: XSS ok. (durch wp_kses_post / do_blocks bereits gefiltert)
-		echo $args['after_widget']; // WPCS: XSS ok.
+		echo $content;
+		echo $args['after_widget'];
 	}
 
 	public function form( $instance ) {
@@ -296,8 +299,9 @@ class MPS_Sidebar_Widget extends WP_Widget {
 				name="<?php echo esc_attr( $this->get_field_name( 'title' ) ); ?>"
 				type="text"
 				value="<?php echo esc_attr( $title ); ?>">
+		</p>
 		<p style="color:#666;font-size:12px">
-			<?php esc_html_e( 'Inhalt wird je Beitrag im Beitrags-Editor gepflegt (Meta-Box "Sidebar-Modul").', 'malzknecht-post-sidebar' ); ?>
+			<?php esc_html_e( 'Inhalt wird je Beitrag im Beitrags-Editor gepflegt.', 'malzknecht-post-sidebar' ); ?>
 		</p>
 		<?php
 	}
@@ -310,3 +314,18 @@ class MPS_Sidebar_Widget extends WP_Widget {
 }
 
 add_action( 'plugins_loaded', array( 'MPS_Post_Sidebar', 'boot' ) );
+
+register_activation_hook( __FILE__, function() {
+	if ( class_exists( 'MPS_GitHub_Updater' ) ) {
+		MPS_GitHub_Updater::clear_cache();
+	}
+} );
+
+add_action( 'upgrader_process_complete', function( $upgrader, $hook_extra ) {
+	if ( empty( $hook_extra['type'] ) || 'plugin' !== $hook_extra['type'] ) {
+		return;
+	}
+	if ( class_exists( 'MPS_GitHub_Updater' ) ) {
+		MPS_GitHub_Updater::clear_cache();
+	}
+}, 10, 2 );

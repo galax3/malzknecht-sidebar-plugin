@@ -2,10 +2,6 @@
 /**
  * GitHub Release based plugin updater.
  *
- * Pollt GitHubs /releases/latest und meldet neue Versionen in WPs eigenes
- * Update-System. Kein Drittanbieter-Plugin, kein SSH/SFTP. Update erscheint
- * im Plugins-Screen wie bei jedem regulaeren WP-Plugin.
- *
  * @package Malzknecht_Post_Sidebar
  */
 
@@ -16,15 +12,10 @@ class MPS_GitHub_Updater {
 	const TRANSIENT_KEY = 'mps_github_release';
 	const TRANSIENT_TTL = 6 * HOUR_IN_SECONDS;
 
-	/** @var string Absoluter Pfad zur Main-Plugin-Datei */
 	private $plugin_file;
-	/** @var string z.B. 'malzknecht-post-sidebar/malzknecht-post-sidebar.php' */
 	private $plugin_basename;
-	/** @var string Plugin-Slug = Ordnername, z.B. 'malzknecht-post-sidebar' */
 	private $plugin_slug;
-	/** @var string GitHub-Repo, z.B. 'galax3/malzknecht-sidebar-plugin' */
 	private $repo;
-	/** @var string Aktuelle Version aus Plugin-Header */
 	private $current_version;
 
 	public function __construct( $plugin_file, $repo ) {
@@ -41,20 +32,18 @@ class MPS_GitHub_Updater {
 		add_filter( 'upgrader_source_selection', array( $this, 'fix_source_dir' ), 10, 4 );
 	}
 
-	/**
-	 * Holt das letzte GitHub-Release, gecached fuer 6h. Bei Fehler 30 Min sperren.
-	 *
-	 * @return array Leeres Array bei Fehler, sonst version/zip_url/changelog/published_at/html_url.
-	 */
+	public static function clear_cache() {
+		delete_transient( self::TRANSIENT_KEY );
+		delete_site_transient( 'update_plugins' );
+	}
+
 	private function get_latest_release() {
 		$cached = get_transient( self::TRANSIENT_KEY );
 		if ( false !== $cached && is_array( $cached ) ) {
 			return $cached;
 		}
 
-		// $this->repo enthaelt 'owner/repo' und darf NICHT urlencoded werden, sonst wird der Slash kaputt.
 		$url = sprintf( 'https://api.github.com/repos/%s/releases/latest', $this->repo );
-
 		$response = wp_remote_get( $url, array(
 			'timeout' => 10,
 			'headers' => array(
@@ -74,7 +63,6 @@ class MPS_GitHub_Updater {
 			return array();
 		}
 
-		// ZIP-Asset suchen, sonst Fallback auf das zipball_url des Tags.
 		$zip_url = '';
 		if ( ! empty( $body['assets'] ) && is_array( $body['assets'] ) ) {
 			foreach ( $body['assets'] as $asset ) {
@@ -100,10 +88,6 @@ class MPS_GitHub_Updater {
 		return $data;
 	}
 
-	/**
-	 * Injiziert das Update in WPs Update-Transient, wenn auf GitHub eine neuere
-	 * Version liegt.
-	 */
 	public function inject_update( $transient ) {
 		if ( ! is_object( $transient ) ) {
 			return $transient;
@@ -140,9 +124,6 @@ class MPS_GitHub_Updater {
 		return $transient;
 	}
 
-	/**
-	 * Liefert Plugin-Detail-Lightbox-Daten aus dem Release-Body.
-	 */
 	public function plugins_api( $result, $action, $args ) {
 		if ( 'plugin_information' !== $action ) {
 			return $result;
@@ -150,12 +131,10 @@ class MPS_GitHub_Updater {
 		if ( empty( $args->slug ) || $args->slug !== $this->plugin_slug ) {
 			return $result;
 		}
-
 		$latest = $this->get_latest_release();
 		if ( empty( $latest['version'] ) ) {
 			return $result;
 		}
-
 		return (object) array(
 			'name'          => 'Malzknecht Post-Sidebar',
 			'slug'          => $this->plugin_slug,
@@ -164,7 +143,7 @@ class MPS_GitHub_Updater {
 			'homepage'      => $latest['html_url'],
 			'download_link' => $latest['zip_url'],
 			'sections'      => array(
-				'description' => 'Dynamisches Sidebar-Modul pro Beitrag. Reusable-Block oder freies HTML, mit Sticky-Wrapper.',
+				'description' => 'Dynamisches Sidebar-Modul pro Beitrag.',
 				'changelog'   => wp_kses_post( wpautop( $latest['changelog'] ) ),
 			),
 			'requires'      => '6.0',
@@ -173,11 +152,6 @@ class MPS_GitHub_Updater {
 		);
 	}
 
-	/**
-	 * GitHub-Release-ZIPs koennen einen anderen Top-Level-Ordnernamen haben
-	 * (z.B. 'malzknecht-post-sidebar-0.2.0/'). WP wuerde dann ein neues Plugin
-	 * neben dem alten installieren. Wir benennen den Ordner auf den Slug um.
-	 */
 	public function fix_source_dir( $source, $remote_source, $upgrader, $hook_extra = array() ) {
 		if ( ! is_string( $source ) || '' === $source ) {
 			return $source;
@@ -185,7 +159,6 @@ class MPS_GitHub_Updater {
 		if ( ! is_dir( $source ) ) {
 			return $source;
 		}
-		// Nur eingreifen, wenn dieses Plugin gerade aktualisiert wird.
 		if ( ! empty( $hook_extra['plugin'] ) && $hook_extra['plugin'] !== $this->plugin_basename ) {
 			return $source;
 		}
@@ -193,12 +166,10 @@ class MPS_GitHub_Updater {
 		if ( $source === $expected ) {
 			return $source;
 		}
-		// Sicherheits-Check: enthaelt der Source unsere Main-Plugin-Datei?
 		$main = trailingslashit( $source ) . basename( $this->plugin_file );
 		if ( ! file_exists( $main ) ) {
 			return $source;
 		}
-
 		global $wp_filesystem;
 		if ( $wp_filesystem && $wp_filesystem->move( untrailingslashit( $source ), untrailingslashit( $expected ), true ) ) {
 			return $expected;
